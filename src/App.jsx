@@ -1,6 +1,8 @@
-import React, { useState } from 'react'
-import { LayoutDashboard, CalendarDays, Users, Scissors, UserCircle, Package, BarChart3, ChevronLeft, ChevronRight, HardDrive, CheckCircle } from 'lucide-react'
-import axios from 'axios'
+import React, { useState, useEffect } from 'react'
+import { LayoutDashboard, CalendarDays, Users, Scissors, UserCircle, Package, BarChart3, ChevronLeft, ChevronRight, LogOut } from 'lucide-react'
+import { supabase } from './supabaseClient'
+import Login from './Login.jsx' // Importiamo la nuova schermata di Login!
+
 import Dashboard   from './pages/Dashboard.jsx'
 import AgendaExcel from './pages/AgendaExcel.jsx'
 import Operatrici  from './pages/Operatrici.jsx'
@@ -19,68 +21,45 @@ const NAV = [
   { id:'analitiche', label:'Analitiche',   icon:BarChart3,       C:Analitiche },
 ]
 
-// ── Bottone backup nell'header ────────────────────────────────────────────────
-function BackupButton() {
-  const [state, setState] = useState('idle') // idle | loading | done | error
-  const [info,  setInfo]  = useState(null)
-
-  const doBackup = async () => {
-    setState('loading')
-    try {
-      const { data } = await axios.post('/api/backup')
-      setInfo(data)
-      setState('done')
-      setTimeout(() => setState('idle'), 4000)
-    } catch(e) {
-      setState('error')
-      setTimeout(() => setState('idle'), 3000)
-    }
-  }
-
-  const colors = {
-    idle:    { bg:'#f3f4f6', color:'#374151', border:'#e5e7eb' },
-    loading: { bg:'#eff6ff', color:'#3b82f6', border:'#93c5fd' },
-    done:    { bg:'#f0fdf4', color:'#16a34a', border:'#86efac' },
-    error:   { bg:'#fef2f2', color:'#dc2626', border:'#fca5a5' },
-  }
-  const c = colors[state]
-
-  return (
-    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-      <button
-        onClick={doBackup}
-        disabled={state === 'loading'}
-        title="Crea backup manuale del database"
-        style={{
-          display:'flex', alignItems:'center', gap:5, padding:'5px 10px',
-          background:c.bg, color:c.color, border:`1px solid ${c.border}`,
-          borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer',
-          transition:'all .2s',
-        }}
-      >
-        {state === 'done'
-          ? <><CheckCircle size={13}/> Backup salvato!</>
-          : state === 'error'
-          ? <>⚠️ Errore backup</>
-          : state === 'loading'
-          ? <>⏳ Backup...</>
-          : <><HardDrive size={13}/> Backup</>
-        }
-      </button>
-      {state === 'done' && info && (
-        <span style={{ fontSize:10, color:'#6b7280', maxWidth:200, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}
-          title={`Salvato in: ${info.cartella}`}>
-          {info.totale_backup} backup · {info.cartella?.split('/').slice(-3).join('/')}
-        </span>
-      )}
-    </div>
-  )
-}
-
 // ── App principale ────────────────────────────────────────────────────────────
 export default function App() {
+  const [session, setSession] = useState(null)
+  const [isChecking, setIsChecking] = useState(true)
+
   const [page, setPage] = useState('dashboard')
   const [open, setOpen] = useState(true)
+
+  // Controllo di sicurezza all'avvio: verifica se siamo già loggati
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      setIsChecking(false)
+    })
+
+    // Ascolta i cambiamenti (es. quando facciamo login o logout)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  // Funzione per chiudere la sessione (Mettere il lucchetto)
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+  }
+
+  // 1. Se sta ancora verificando la password nel cloud, mostriamo un caricamento
+  if (isChecking) {
+    return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#f4f1ea', color:'#D4AF37', fontWeight:'bold' }}>Verifica sicurezza in corso...</div>
+  }
+
+  // 2. Se NON c'è una sessione attiva, mostriamo SOLO la pagina di Login
+  if (!session) {
+    return <Login onLoginSuccess={setSession} />
+  }
+
+  // 3. Se la password è corretta, mostriamo il gestionale completo!
   const { C: Page, label } = NAV.find(n => n.id === page)
 
   return (
@@ -127,12 +106,27 @@ export default function App() {
         <header style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 20px', background:'white', borderBottom:'1px solid #e5e7eb', flexShrink:0 }}>
           <h1 style={{ fontWeight:700, fontSize:15, color:'#111827', margin:0 }}>{label}</h1>
           <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-            {/* Backup button */}
-            <BackupButton/>
-            {/* Indicatore server */}
+            
+            {/* Tasto Logout */}
+            <button
+              onClick={handleLogout}
+              title="Blocca il gestionale"
+              style={{
+                display:'flex', alignItems:'center', gap:5, padding:'6px 12px',
+                background:'#fef2f2', color:'#dc2626', border:'1px solid #fca5a5',
+                borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer',
+                transition:'all .2s',
+              }}
+              onMouseEnter={e=>e.currentTarget.style.background='#fee2e2'}
+              onMouseLeave={e=>e.currentTarget.style.background='#fef2f2'}
+            >
+              <LogOut size={13}/> Esci e Blocca
+            </button>
+
+            {/* Indicatore server Cloud */}
             <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-              <div style={{ width:8, height:8, borderRadius:'50%', background:'#27AE60' }} title="Server attivo"/>
-              <span style={{ fontSize:12, color:'#6b7280' }}>Gestionale 4.0</span>
+              <div style={{ width:8, height:8, borderRadius:'50%', background:'#27AE60' }} title="Cloud attivo"/>
+              <span style={{ fontSize:12, color:'#6b7280' }}>Cloud Vercel</span>
             </div>
           </div>
         </header>
