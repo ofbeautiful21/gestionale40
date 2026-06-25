@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-// 1. ELIMINATO axios, IMPORTATO supabase
 import { supabase } from '../supabaseClient'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
@@ -63,7 +62,7 @@ function Popup({ ora, giorno, staffId, cellData, clients, services, onSave, onDe
     }
     document.addEventListener('mousedown', fn)
     return () => document.removeEventListener('mousedown', fn)
-  }, []) // eslint-disable-line
+  }, [])
 
   const filtC = clients.filter(c => !cSearch.trim() || `${c.nome} ${c.cognome}`.toLowerCase().includes(cSearch.toLowerCase()) || (c.telefono||'').includes(cSearch)).slice(0,8)
   const filtS = services.filter(s => !sSearch.trim() || s.nome.toLowerCase().includes(sSearch.toLowerCase())).slice(0,8)
@@ -85,7 +84,6 @@ function Popup({ ora, giorno, staffId, cellData, clients, services, onSave, onDe
     onClose()
   }
 
-  // 2. LOGICA COMPLETAMENTO (POST per Appuntamenti via Supabase)
   const handleComplete = async () => {
     if (!staffId) { alert('Nessuna operatrice associata a questa cella'); return }
     setCompleting(true)
@@ -126,8 +124,6 @@ function Popup({ ora, giorno, staffId, cellData, clients, services, onSave, onDe
   }
 
   const hasData = !!(cellData?.testo || cellData?.client_id || cellData?.service_id)
-  const canComplete = !!(selC?.id || selS?.id || staffId)
-
   const dropBox = { position:'absolute', top:'100%', left:0, right:0, background:'white', border:'1px solid #d1d5db', borderRadius:8, boxShadow:'0 6px 20px rgba(0,0,0,.14)', zIndex:9999, maxHeight:160, overflowY:'auto', marginTop:2 }
 
   if (completed && compInfo) {
@@ -166,7 +162,6 @@ function Popup({ ora, giorno, staffId, cellData, clients, services, onSave, onDe
             placeholder="Scrivi testo libero..." className="input-base" style={{ fontSize:12 }}/>
         </div>
 
-        {/* Cliente */}
         <div>
           <label style={{ fontSize:11, fontWeight:600, color:'#6b7280', display:'flex', alignItems:'center', gap:4, marginBottom:4 }}><User size={11}/> Cliente</label>
           {selC ? (
@@ -190,7 +185,6 @@ function Popup({ ora, giorno, staffId, cellData, clients, services, onSave, onDe
           )}
         </div>
 
-        {/* Servizio */}
         <div>
           <label style={{ fontSize:11, fontWeight:600, color:'#6b7280', display:'flex', alignItems:'center', gap:4, marginBottom:4 }}><Scissors size={11}/> Servizio</label>
           {selS ? (
@@ -215,7 +209,6 @@ function Popup({ ora, giorno, staffId, cellData, clients, services, onSave, onDe
           )}
         </div>
 
-        {/* Bottoni azione */}
         <div style={{ display:'flex', gap:8, paddingTop:4, borderTop:'1px solid #e5e7eb' }}>
           <button onMouseDown={e=>{e.preventDefault();save()}}
             style={{ flex:1, padding:'8px', background:'#D4AF37', color:'white', border:'none', borderRadius:8, fontWeight:700, fontSize:12, cursor:'pointer' }}>
@@ -229,7 +222,6 @@ function Popup({ ora, giorno, staffId, cellData, clients, services, onSave, onDe
           )}
         </div>
 
-        {/* Bottone Completa Servizio */}
         <button
           onMouseDown={e=>{ e.preventDefault(); handleComplete() }}
           disabled={completing}
@@ -250,7 +242,6 @@ function Popup({ ora, giorno, staffId, cellData, clients, services, onSave, onDe
         <p style={{ margin:0, fontSize:10, color:'#9ca3af', textAlign:'center', marginTop:-6 }}>
           Aggiorna analitiche e storico cliente
         </p>
-
       </div>
     </div>
   )
@@ -304,12 +295,15 @@ export default function AgendaExcel() {
   const [grid,    setGrid]    = useState({})
   const [loading, setLoading] = useState(false)
   const [saving,  setSaving]  = useState(false)
+  
+  // STATO PER IL DRAG & DROP
+  const [draggedStaff, setDraggedStaff] = useState(null)
 
-  // 3. CARICAMENTO DATI BASE
   useEffect(() => {
     const fetchSetup = async () => {
       const [{ data: st }, { data: cl }, { data: sv }] = await Promise.all([
-        supabase.from('staff').select('*').order('nome'),
+        // Carica lo staff in base alla nuova colonna "ordine" (ascendente)
+        supabase.from('staff').select('*').order('ordine', { ascending: true }),
         supabase.from('clients').select('*').order('nome'),
         supabase.from('services').select('*').order('nome')
       ])
@@ -320,7 +314,6 @@ export default function AgendaExcel() {
     fetchSetup()
   }, [])
 
-  // 4. CARICAMENTO GRIGLIA AGENDA GIORNALIERA CON JOIN
   const loadGrid = useCallback(async d => {
     setLoading(true)
     try { 
@@ -349,7 +342,6 @@ export default function AgendaExcel() {
 
   useEffect(()=>{ loadGrid(date) },[date,loadGrid])
 
-  // 5. SALVATAGGIO CELLA (Gestisce in automatico Inserimento o Modifica in base all'ID)
   const handleSave = useCallback(async (staffId, ora, payload) => {
     setSaving(true)
     try {
@@ -367,11 +359,9 @@ export default function AgendaExcel() {
       }
 
       if (existingId) {
-        // Se la cella esiste già nel database, la aggiorniamo
         const { error } = await supabase.from('agenda_grid').update(payloadData).eq('id', existingId)
         if (error) throw error
       } else {
-        // Se è una cella vuota nuova, la inseriamo
         const { error } = await supabase.from('agenda_grid').insert([payloadData])
         if (error) throw error
       }
@@ -380,27 +370,20 @@ export default function AgendaExcel() {
     } catch(e){console.error(e);alert('Errore: '+e.message)} finally{setSaving(false)}
   },[date, grid, loadGrid])
 
-  // 6. ELIMINAZIONE CELLA
   const handleDelete = useCallback(async (staffId, ora) => {
     const key = `${staffId}_${ora}`
     const idToDelete = grid[key]?.id
-    if (!idToDelete) return // Se la cella non ha ID significa che è già vuota nel database
+    if (!idToDelete) return
     
-    // Rimuoviamo visivamente subito per far sembrare il programma fulmineo
     setGrid(p=>{const n={...p};delete n[key];return n})
-    
-    try {
-      await supabase.from('agenda_grid').delete().eq('id', idToDelete)
-    } catch(e){console.error(e)}
+    try { await supabase.from('agenda_grid').delete().eq('id', idToDelete) } catch(e){console.error(e)}
   },[grid])
 
-  // 7. GESTIONE CELLE GIALLE (Clic Destro)
   const handleToggle = useCallback(async (staffId, ora) => {
     const key = `${staffId}_${ora}`
     const cur = grid[key] || {}
     const nc = cur.colore === 'yellow' ? 'white' : 'yellow'
     
-    // Aggiornamento visivo immediato
     setGrid(p=>({...p,[key]:{...cur, colore: nc}}))
     
     try {
@@ -411,26 +394,60 @@ export default function AgendaExcel() {
           giorno: date, ora, staff_id: staffId, testo: cur.testo||'', colore: nc, client_id: cur.client_id||null, service_id: cur.service_id||null
         }]).select()
         if (data && data[0]) {
-           // Salviamo l'ID appena generato nella griglia locale
            setGrid(p=>({...p,[key]:{...cur, colore: nc, id: data[0].id}}))
         }
       }
-    }
-    catch(e){ 
-      // Se fallisce, torniamo al colore precedente
-      setGrid(p=>({...p,[key]:{...cur, colore: cur.colore||'white'}})) 
-    }
+    } catch(e){ setGrid(p=>({...p,[key]:{...cur, colore: cur.colore||'white'}})) }
   },[grid, date])
 
   const moveDay=n=>{const [y,m,d]=date.split('-').map(Number);setDate(format(new Date(y,m-1,d+n),'yyyy-MM-dd'))}
   const label=(()=>{try{const [y,m,d]=date.split('-').map(Number);return format(new Date(y,m-1,d),"EEEE d MMMM yyyy",{locale:it})}catch{return date}})()
+
+  // ── FUNZIONI PER IL DRAG & DROP SULLE OPERATRICI ──
+  const handleDragStart = (e, id) => {
+    setDraggedStaff(id)
+  }
+
+  const handleDragOver = (e) => {
+    e.preventDefault() // Obbligatorio per consentire il drop
+  }
+
+  const handleDrop = async (e, targetId) => {
+    e.preventDefault()
+    if (!draggedStaff || draggedStaff === targetId) return
+
+    const draggedIdx = staff.findIndex(s => s.id === draggedStaff)
+    const targetIdx  = staff.findIndex(s => s.id === targetId)
+
+    const newStaff = [...staff]
+    const [item] = newStaff.splice(draggedIdx, 1)
+    newStaff.splice(targetIdx, 0, item)
+
+    // Aggiornamento visivo immediato
+    setStaff(newStaff)
+
+    // Salvataggio nel database tramite upsert
+    const updates = newStaff.map((s, index) => ({
+      id: s.id,
+      nome: s.nome,
+      ordine: index
+    }))
+
+    const { error } = await supabase.from('staff').upsert(updates)
+    if (error) {
+      console.error("Errore salvataggio ordine:", error)
+      alert("Errore nel salvataggio dell'ordine")
+    }
+    
+    setDraggedStaff(null)
+  }
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:10, height:'100%' }}>
       <div className="card" style={{ display:'flex', flexWrap:'wrap', alignItems:'center', justifyContent:'space-between', gap:10, padding:'10px 16px' }}>
         <div>
           <p style={{ fontWeight:600, textTransform:'capitalize', margin:0, fontSize:14 }}>{label}</p>
-          <p style={{ fontSize:11, color:'#6b7280', margin:0 }}>Clic = modifica · Clic destro = turno giallo</p>
+          <p style={{ fontSize:11, color:'#6b7280', margin:0 }}>Trascina il nome delle operatrici per cambiare l'ordine</p>
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:6 }}>
           <button className="btn-ghost" style={{ padding:'6px 8px' }} onClick={()=>moveDay(-1)}><ChevronLeft size={14}/></button>
@@ -462,7 +479,27 @@ export default function AgendaExcel() {
                 <tr>
                   <th style={{ width:64, padding:'9px 8px', background:'#1a1a2e', borderBottom:'2px solid #D4AF37', borderRight:'2px solid #D4AF37', textAlign:'center', fontSize:11, color:'#D4AF37', fontWeight:700, position:'sticky', left:0, zIndex:20 }}>ORA</th>
                   {staff.map(s=>(
-                    <th key={s.id} style={{ minWidth:170, padding:'9px 12px', background:'#1a1a2e', borderBottom:'2px solid #D4AF37', borderRight:'1px solid #4b5563', textAlign:'center', fontWeight:700, color:'white', fontSize:12 }}>{s.nome.trim()}</th>
+                    <th 
+                      key={s.id} 
+                      draggable 
+                      onDragStart={(e) => handleDragStart(e, s.id)}
+                      onDragOver={handleDragOver}
+                      onDrop={(e) => handleDrop(e, s.id)}
+                      title="Trascina per riordinare"
+                      style={{ 
+                        minWidth:170, 
+                        padding:'9px 12px', 
+                        background:'#1a1a2e', 
+                        borderBottom:'2px solid #D4AF37', 
+                        borderRight:'1px solid #4b5563', 
+                        textAlign:'center', 
+                        fontWeight:700, 
+                        color:'white', 
+                        fontSize:12,
+                        cursor: 'grab' // Mostra la manina del trascinamento
+                      }}>
+                      {s.nome.trim()}
+                    </th>
                   ))}
                 </tr>
               </thead>
