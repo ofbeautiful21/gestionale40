@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { box-sizing: border-box; }
+  body { background: #f4f1ea; font-family: 'Inter', sans-serif; color: #111827; margin: 0; overflow: hidden; }
+  #root { height: 100vh; display: flex; overflow: hidden; }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-thumb { background: #D4AF37; border-radius: 3px; }
+}
+
+@layer components {
+  .card { @apply bg-white rounded-xl shadow-sm border border-gray-100 p-4; }
+  .btn-primary { @apply bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded-lg font-medium transition-colors text-sm; }
+  .btn-success { @apply bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors text-sm; }
+  .btn-ghost   { @apply bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium transition-colors text-sm; }
+  .btn-gold    { @apply text-white px-4 py-2 rounded-lg font-medium transition-colors text-sm; background:#D4AF37; }
+  .btn-gold:hover { background:#b8960e; }
+  .input-base  { @apply w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 bg-white; }
+  .alert-scorta { @apply bg-red-50 border border-red-300 text-red-700 px-3 py-2 rounded-lg text-sm flex items-center gap-2; }
+}
+
+@keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+.fade-in { animation: fadeIn .18s ease-out; }
