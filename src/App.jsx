@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { LayoutDashboard, CalendarDays, Users, Scissors, UserCircle, Package, BarChart3, ChevronLeft, ChevronRight, LogOut } from 'lucide-react'
 import { supabase } from './supabaseClient'
-import Login from './Login.jsx' // Importiamo la nuova schermata di Login!
+import Login from './pages//Login.jsx' // Importiamo la nuova schermata di Login!
 
 import Dashboard   from './pages/Dashboard.jsx'
 import AgendaExcel from './pages/AgendaExcel.jsx'
