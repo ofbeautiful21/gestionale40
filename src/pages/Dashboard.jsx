@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-// 1. ELIMINATO axios, IMPORTATO supabase
 import { supabase } from '../supabaseClient'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
@@ -29,15 +28,13 @@ function ReadPopup({ ora, giorno, staffId, cell, onClose }) {
     }
     document.addEventListener('mousedown', fn)
     return () => document.removeEventListener('mousedown', fn)
-  }, []) // eslint-disable-line
+  }, [])
 
-  // 2. NUOVO METODO PER REGISTRARE UN SERVIZIO COMPLETATO (POST)
   const handleComplete = async () => {
     if (!staffId) { alert('Nessuna operatrice associata'); return }
     setCompleting(true)
     
     try {
-      // Evitiamo che venga completato due volte controllando se esiste già l'appuntamento
       const { data: existing } = await supabase
         .from('appointments')
         .select('id')
@@ -51,7 +48,6 @@ function ReadPopup({ ora, giorno, staffId, cell, onClose }) {
         return
       }
 
-      // Inseriamo il nuovo appuntamento
       const { error } = await supabase.from('appointments').insert([{
         client_id:  cell.client_id  || null,
         service_id: cell.service_id || null,
@@ -64,7 +60,6 @@ function ReadPopup({ ora, giorno, staffId, cell, onClose }) {
       if (error) throw error
 
       setCompleted(true)
-      // Passiamo i dati per la schermata di successo
       setCompInfo({
         cliente_nome: cell.cliente_nome || '—',
         servizio_nome: cell.servizio_nome || '—',
@@ -79,7 +74,6 @@ function ReadPopup({ ora, giorno, staffId, cell, onClose }) {
 
   const hasContent = !!(cell?.testo || cell?.cliente_nome?.trim() || cell?.servizio_nome?.trim())
 
-  // Schermata di conferma
   if (completed && compInfo) {
     return (
       <div ref={ref} style={{ position:'absolute', top:'100%', left:0, zIndex:1000, background:'white', border:'2px solid #16a34a', borderRadius:12, boxShadow:'0 8px 32px rgba(0,0,0,.18)', minWidth:260, padding:0 }}>
@@ -106,11 +100,7 @@ function ReadPopup({ ora, giorno, staffId, cell, onClose }) {
       </div>
 
       <div style={{ padding:12, display:'flex', flexDirection:'column', gap:8 }}>
-        {cell?.testo && (
-          <div style={{ fontSize:13, color:'#111827', fontWeight:500, padding:'6px 8px', background:'#f9fafb', borderRadius:6 }}>
-            {cell.testo}
-          </div>
-        )}
+        {cell?.testo && <div style={{ fontSize:13, color:'#111827', fontWeight:500, padding:'6px 8px', background:'#f9fafb', borderRadius:6 }}>{cell.testo}</div>}
         {cell?.cliente_nome?.trim() && (
           <div style={{ display:'flex', alignItems:'center', gap:7, padding:'6px 10px', background:'#eff6ff', border:'1px solid #93c5fd', borderRadius:8 }}>
             <User size={13} color="#3b82f6"/>
@@ -127,37 +117,22 @@ function ReadPopup({ ora, giorno, staffId, cell, onClose }) {
               <p style={{ margin:0, fontSize:12, fontWeight:600, color:'#166534' }}>{cell.servizio_nome.trim()}</p>
               <p style={{ margin:0, fontSize:10, color:'#6b7280' }}>Servizio</p>
             </div>
-            {cell.servizio_prezzo > 0 && (
-              <span style={{ fontSize:13, fontWeight:700, color:'#16a34a', flexShrink:0 }}>
-                € {parseFloat(cell.servizio_prezzo).toFixed(2)}
-              </span>
-            )}
+            {cell.servizio_prezzo > 0 && <span style={{ fontSize:13, fontWeight:700, color:'#16a34a', flexShrink:0 }}>€ {parseFloat(cell.servizio_prezzo).toFixed(2)}</span>}
           </div>
         )}
-
         {!hasContent && <p style={{ margin:0, fontSize:12, color:'#9ca3af', textAlign:'center', padding:'8px 0' }}>Cella vuota</p>}
-
         <div style={{ borderTop:'1px solid #e5e7eb', paddingTop:8, display:'flex', flexDirection:'column', gap:6 }}>
-          <button
-            onMouseDown={e=>{ e.preventDefault(); handleComplete() }}
-            disabled={completing}
-            style={{ width:'100%', padding:'9px', border:'none', borderRadius:8, cursor:'pointer', background:completing?'#d1fae5':'#16a34a', color:'white', fontWeight:700, fontSize:13, display:'flex', alignItems:'center', justifyContent:'center', gap:6, opacity:completing?0.7:1 }}
-            onMouseEnter={e=>{ if(!completing) e.currentTarget.style.background='#15803d' }}
-            onMouseLeave={e=>{ if(!completing) e.currentTarget.style.background='#16a34a' }}
-          >
-            <CheckCircle size={15}/>
-            {completing ? 'Registrazione...' : '✅ Servizio completato'}
+          <button onMouseDown={e=>{ e.preventDefault(); handleComplete() }} disabled={completing}
+            style={{ width:'100%', padding:'9px', border:'none', borderRadius:8, cursor:'pointer', background:completing?'#d1fae5':'#16a34a', color:'white', fontWeight:700, fontSize:13, display:'flex', alignItems:'center', justifyContent:'center', gap:6, opacity:completing?0.7:1 }}>
+            <CheckCircle size={15}/>{completing ? 'Registrazione...' : '✅ Servizio completato'}
           </button>
-          <p style={{ margin:0, fontSize:10, color:'#9ca3af', textAlign:'center' }}>
-            👁 Sola lettura — modifica da "Agenda Excel"
-          </p>
+          <p style={{ margin:0, fontSize:10, color:'#9ca3af', textAlign:'center' }}>👁 Sola lettura — modifica da "Agenda Excel"</p>
         </div>
       </div>
     </div>
   )
 }
 
-// ── Cella dashboard ───────────────────────────────────────────────────────────
 function DashCell({ cell, ora, giorno, staffId }) {
   const [open, setOpen]   = useState(false)
   const isYellow  = cell?.colore === 'yellow'
@@ -170,27 +145,17 @@ function DashCell({ cell, ora, giorno, staffId }) {
     >
       <div style={{ display:'flex', alignItems:'center', height:'100%', padding:'0 7px', overflow:'hidden' }}
         onMouseEnter={e=>{ if(hasContent) e.currentTarget.parentElement.style.background=isYellow?'#fde047':'#f0f9ff' }}
-        onMouseLeave={e=>{ e.currentTarget.parentElement.style.background=isYellow?'#fef08a':'white' }}
-      >
+        onMouseLeave={e=>{ e.currentTarget.parentElement.style.background=isYellow?'#fef08a':'white' }}>
         {cell?.client_id  && <User     size={10} color="#3b82f6" style={{ flexShrink:0, marginRight:3 }}/>}
         {cell?.service_id && <Scissors size={10} color="#16a34a" style={{ flexShrink:0, marginRight:3 }}/>}
-        <span style={{ fontSize:11, color:'#1f2937', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', flex:1, fontWeight:hasContent?500:400 }}>
-          {cell?.testo || ''}
-        </span>
-        {cell?.servizio_prezzo > 0 && (
-          <span style={{ fontSize:10, color:'#16a34a', fontWeight:700, flexShrink:0, marginLeft:3 }}>
-            €{parseFloat(cell.servizio_prezzo).toFixed(0)}
-          </span>
-        )}
+        <span style={{ fontSize:11, color:'#1f2937', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', flex:1, fontWeight:hasContent?500:400 }}>{cell?.testo || ''}</span>
+        {cell?.servizio_prezzo > 0 && <span style={{ fontSize:10, color:'#16a34a', fontWeight:700, flexShrink:0, marginLeft:3 }}>€{parseFloat(cell.servizio_prezzo).toFixed(0)}</span>}
       </div>
-      {open && cell && (
-        <ReadPopup ora={ora} giorno={giorno} staffId={staffId} cell={cell} onClose={()=>setOpen(false)}/>
-      )}
+      {open && cell && <ReadPopup ora={ora} giorno={giorno} staffId={staffId} cell={cell} onClose={()=>setOpen(false)}/>}
     </td>
   )
 }
 
-// ── Dashboard principale ──────────────────────────────────────────────────────
 export default function Dashboard() {
   const [date,    setDate]    = useState(format(new Date(),'yyyy-MM-dd'))
   const [staff,   setStaff]   = useState([])
@@ -198,10 +163,10 @@ export default function Dashboard() {
   const [alerts,  setAlerts]  = useState([])
   const [loading, setLoading] = useState(false)
 
-  // 3. NUOVO METODO PER LEGGERE OPERATRICI E PRODOTTI (IN SCORTA)
+  // 3. ORDINE PERSONALIZZATO: .order('ordine', { ascending: true })
   useEffect(() => {
     const fetchSetup = async () => {
-      const { data: st } = await supabase.from('staff').select('*').order('nome')
+      const { data: st } = await supabase.from('staff').select('*').order('ordine', { ascending: true })
       if (st) setStaff(st)
       
       const { data: pr } = await supabase.from('products').select('*')
@@ -210,17 +175,12 @@ export default function Dashboard() {
     fetchSetup()
   }, [])
 
-  // 4. NUOVA SUPER-QUERY PER L'AGENDA CON JOIN SU CLIENTI E SERVIZI
   const load = useCallback(async d => {
     setLoading(true)
     try { 
       const { data, error } = await supabase
         .from('agenda_grid')
-        .select(`
-          *,
-          clients ( nome, cognome ),
-          services ( nome, prezzo )
-        `)
+        .select(`*, clients ( nome, cognome ), services ( nome, prezzo )`)
         .eq('giorno', d)
         
       if (error) throw error
@@ -248,10 +208,7 @@ export default function Dashboard() {
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:12, height:'100%' }}>
-      {alerts.map(p=>(
-        <div key={p.id} className="alert-scorta"><AlertTriangle size={14}/><span><b>{p.nome}</b>: solo {p.quantita_disponibile} pz rimaste</span></div>
-      ))}
-
+      {alerts.map(p=>(<div key={p.id} className="alert-scorta"><AlertTriangle size={14}/><span><b>{p.nome}</b>: solo {p.quantita_disponibile} pz rimaste</span></div>))}
       <div className="card" style={{ display:'flex', flexWrap:'wrap', alignItems:'center', justifyContent:'space-between', gap:12, padding:'10px 16px' }}>
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
           <CalendarDays size={20} color="#D4AF37"/>
@@ -267,7 +224,6 @@ export default function Dashboard() {
           <button className="btn-ghost" style={{ padding:'6px 8px' }} onClick={()=>load(date)}><RefreshCw size={14} className={loading?'animate-spin':''}/></button>
         </div>
       </div>
-
       <div className="card" style={{ flex:1, overflow:'hidden', padding:0, border:'1px solid #9ca3af' }}>
         {staff.length===0 ? (
           <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100%', color:'#9ca3af', flexDirection:'column', gap:8 }}>
